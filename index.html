@@ -128,14 +128,141 @@
       width: 100%;
       height: 100%;
     }
+    .audio-player {
+      margin: 20px 0;
+      border-radius: 8px;
+      background: rgba(50, 50, 70, 0.8);
+      padding: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .control-btn {
+      background: transparent;
+      border: none;
+      color: #ffcc00;
+      font-size: 20px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: all 0.2s;
+    }
+    .control-btn:hover {
+      background: rgba(255, 204, 0, 0.2);
+    }
+    .progress-container {
+      flex-grow: 1;
+      position: relative;
+      height: 30px;
+      display: flex;
+      align-items: center;
+    }
+    .progress-bar {
+      height: 6px;
+      background: #555;
+      border-radius: 3px;
+      flex-grow: 1;
+      position: relative;
+      cursor: pointer;
+    }
+    .progress-bar::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: var(--progress, 0%);
+      background: #ffcc00;
+      border-radius: 3px;
+    }
+    .progress-time {
+      font-size: 12px;
+      color: #aaa;
+      min-width: 40px;
+      text-align: center;
+    }
+    .progress-slash {
+      font-size: 12px;
+      color: #aaa;
+      min-width: 10px;
+      text-align: center;
+    }
+    .volume-slider {
+      width: 80px;
+      height: 6px;
+      background: #555;
+      border-radius: 3px;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #ffcc00;
+      cursor: pointer;
+    }
+    .file-upload-container {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .file-upload-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: rgba(255, 204, 0, 0.2);
+      border: 2px dashed rgba(255, 204, 0, 0.5);
+      border-radius: 10px;
+      color: #ffcc00;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 250px;
+      justify-content: center;
+    }
+    .file-upload-label:hover {
+      background: rgba(255, 204, 0, 0.3);
+      border-color: rgba(255, 204, 0, 0.8);
+    }
+    .file-upload-icon {
+      font-size: 20px;
+    }
+    .file-upload-text {
+      font-weight: bold;
+    }
+    .file-name {
+      margin-left: 10px;
+      font-style: italic;
+      color: #aaa;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 200px;
+    }
+    .file-upload-input {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🎵 Real-Time Audio Effects 🎚️</h1>
     
-    <div class="file-input">
-      <input type="file" accept="audio/*" id="audioFile">
+    <div class="file-upload-container">
+      <label for="audioFile" class="file-upload-label">
+        <span class="file-upload-icon">📁</span>
+        <span class="file-upload-text">Choose Audio File</span>
+        <span id="fileName" class="file-name">No file selected</span>
+      </label>
+      <input type="file" accept="audio/*" id="audioFile" class="file-upload-input">
     </div>
     
     <div class="instructions">
@@ -148,7 +275,18 @@
       </ul>
     </div>
     
-    <audio id="audio" controls></audio>
+    <div class="audio-player">
+      <div class="audio-controls">
+        <button id="playPauseBtn" class="control-btn">▶</button>
+        <div class="progress-container">
+          <div class="progress-bar" id="progressBar"></div>
+          <div class="progress-time" id="currentTime">0:00</div>
+          <div class="progress-slash">/</div>
+          <div class="progress-time" id="duration">0:00</div>
+        </div>
+      </div>
+    </div>
+    <audio id="audio"></audio>
     
     <div class="visualizer">
       <canvas id="visualizer"></canvas>
@@ -200,6 +338,54 @@
     const bassVal = document.getElementById('bassVal');
     const statusEl = document.getElementById('status');
     const visualizerCanvas = document.getElementById('visualizer');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const progressBar = document.getElementById('progressBar');
+    const currentTimeEl = document.getElementById('currentTime');
+    const durationEl = document.getElementById('duration');
+
+    // Update progress bar
+    function updateProgress() {
+      if (!audioElement.duration) return;
+      const progress = (audioElement.currentTime / audioElement.duration) * 100;
+      progressBar.style.setProperty('--progress', `${progress}%`);
+      currentTimeEl.textContent = formatTime(audioElement.currentTime);
+    }
+
+    // Format time (seconds to MM:SS)
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    // Update play/pause button
+    function updatePlayPauseIcon() {
+      playPauseBtn.textContent = audioElement.paused ? '▶' : '❚❚';
+    }
+
+    // Event listeners
+    playPauseBtn.addEventListener('click', () => {
+      if (audioElement.paused) {
+        audioElement.play();
+      } else {
+        audioElement.pause();
+      }
+      updatePlayPauseIcon();
+    });
+
+    progressBar.addEventListener('click', (e) => {
+      const rect = progressBar.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      audioElement.currentTime = pos * audioElement.duration;
+    });
+
+    // Audio element event listeners
+    audioElement.addEventListener('timeupdate', updateProgress);
+    audioElement.addEventListener('play', updatePlayPauseIcon);
+    audioElement.addEventListener('pause', updatePlayPauseIcon);
+    audioElement.addEventListener('durationchange', () => {
+      durationEl.textContent = formatTime(audioElement.duration);
+    });
     
     // Audio context and nodes
     let audioCtx, source, gainNode, convolver, bassEQ, dryGain, wetGain;
@@ -351,14 +537,16 @@
     fileInput.onchange = () => {
       const file = fileInput.files[0];
       if (!file) return;
-      
+
+      // Handle file change
+      document.getElementById('fileName').textContent = file.name;
       const fileURL = URL.createObjectURL(file);
       audioElement.src = fileURL;
       statusEl.textContent = `Loaded: ${file.name}`;
-      
+
       // Initialize audio if not already done
       initAudio();
-      
+
       // Apply current settings
       audioElement.playbackRate = parseFloat(speedSlider.value);
       audioElement.preservesPitch = preservePitch.checked;
