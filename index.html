@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Real-Time Audio Effects</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+      color: #fff;
+      min-height: 100vh;
+    }
+    .container {
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    h1 {
+      text-align: center;
+      margin-top: 0;
+      color: #ffcc00;
+      text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+    }
+    .file-input {
+      background: #444;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    audio {
+      width: 100%;
+      margin: 15px 0;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .controls {
+      background: rgba(50, 50, 70, 0.8);
+      padding: 20px;
+      border-radius: 15px;
+      margin-top: 20px;
+    }
+    .slider-container {
+      margin: 20px 0;
+      padding: 15px;
+      background: rgba(30, 30, 50, 0.6);
+      border-radius: 10px;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    .slider {
+      width: 100%;
+      height: 25px;
+      background: #555;
+      border-radius: 12px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #ffcc00;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 204, 0, 0.7);
+    }
+    .value-display {
+      display: inline-block;
+      width: 50px;
+      text-align: center;
+      background: rgba(255, 204, 0, 0.2);
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .preserve-pitch {
+      margin-top: 20px;
+      padding: 10px;
+      background: rgba(30, 30, 50, 0.6);
+      border-radius: 10px;
+      text-align: center;
+    }
+    .preserve-pitch label {
+      display: inline-flex;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .preserve-pitch input {
+      width: 20px;
+      height: 20px;
+      accent-color: #ffcc00;
+    }
+    .instructions {
+      background: rgba(255, 204, 0, 0.1);
+      border-left: 4px solid #ffcc00;
+      padding: 10px 15px;
+      margin: 20px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    .status {
+      text-align: center;
+      margin-top: 15px;
+      font-style: italic;
+      color: #aaa;
+    }
+    .visualizer {
+      height: 100px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      margin: 20px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎵 Real-Time Audio Effects 🎚️</h1>
+    
+    <div class="file-input">
+      <input type="file" accept="audio/*" id="audioFile">
+    </div>
+    
+    <div class="instructions">
+      <p>Upload an audio file (MP3, WAV, etc.) and apply effects in real-time:</p>
+      <ul>
+        <li><strong>Speed</strong>: Adjust playback speed (0.5x to 2x)</li>
+        <li><strong>Reverb</strong>: Add room ambience (0% to 100%)</li>
+        <li><strong>Bass Boost</strong>: Enhance low frequencies (0% to 100%)</li>
+        <li><strong>Preserve Pitch</strong>: Maintain original pitch when changing speed</li>
+      </ul>
+    </div>
+    
+    <audio id="audio" controls></audio>
+    
+    <div class="visualizer">
+      <canvas id="visualizer"></canvas>
+    </div>
+    
+    <div class="controls">
+      <div class="slider-container">
+        <label>
+          <span>Speed: <span id="speedVal" class="value-display">1.00</span>x</span>
+        </label>
+        <input type="range" id="speed" class="slider" min="0.5" max="2.0" step="0.05" value="1">
+      </div>
+      
+      <div class="slider-container">
+        <label>
+          <span>Reverb: <span id="reverbVal" class="value-display">0</span>%</span>
+        </label>
+        <input type="range" id="reverb" class="slider" min="0" max="100" step="5" value="0">
+      </div>
+      
+      <div class="slider-container">
+        <label>
+          <span>Bass Boost: <span id="bassVal" class="value-display">0</span>%</span>
+        </label>
+        <input type="range" id="bass" class="slider" min="0" max="100" step="5" value="0">
+      </div>
+      
+      <div class="preserve-pitch">
+        <label>
+          <input type="checkbox" id="preservePitch">
+          <span>Preserve Pitch When Changing Speed</span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="status" id="status">Ready to load audio file...</div>
+  </div>
+
+  <script>
+    // DOM elements
+    const fileInput = document.getElementById('audioFile');
+    const audioElement = document.getElementById('audio');
+    const speedSlider = document.getElementById('speed');
+    const reverbSlider = document.getElementById('reverb');
+    const bassSlider = document.getElementById('bass');
+    const preservePitch = document.getElementById('preservePitch');
+    const speedVal = document.getElementById('speedVal');
+    const reverbVal = document.getElementById('reverbVal');
+    const bassVal = document.getElementById('bassVal');
+    const statusEl = document.getElementById('status');
+    const visualizerCanvas = document.getElementById('visualizer');
+    
+    // Audio context and nodes
+    let audioCtx, source, gainNode, convolver, bassEQ, dryGain, wetGain;
+    let analyser, visualizerCtx, animationId;
+    
+    // Initialize audio context and graph
+    function initAudio() {
+      if (audioCtx) {
+        // If audio context exists but visualization isn't running, start it
+        if (!animationId) {
+          visualize();
+        }
+        return;
+      }
+      
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        statusEl.textContent = "Audio context created. Load an audio file to begin.";
+        
+        // Create effect nodes
+        gainNode = audioCtx.createGain();
+        bassEQ = audioCtx.createBiquadFilter();
+        bassEQ.type = 'lowshelf';
+        bassEQ.frequency.value = 150;
+        
+        convolver = audioCtx.createConvolver();
+        dryGain = audioCtx.createGain();
+        wetGain = audioCtx.createGain();
+        
+        // Create a simple impulse response
+        createBasicReverb();
+        
+        // Set initial values
+        updateReverb();
+        updateBass();
+        
+        // Setup visualizer
+        visualizerCtx = visualizerCanvas.getContext('2d');
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        
+        // Create the audio graph
+        source = audioCtx.createMediaElementSource(audioElement);
+        source.connect(bassEQ);
+        
+        // Split signal: dry and wet (reverb) paths
+        bassEQ.connect(dryGain);
+        bassEQ.connect(convolver);
+        convolver.connect(wetGain);
+        
+        // Merge paths
+        dryGain.connect(gainNode);
+        wetGain.connect(gainNode);
+        gainNode.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        
+        // Start visualization
+        visualize();
+      } catch (error) {
+        statusEl.textContent = "Error initializing audio: " + error.message;
+        console.error("Audio initialization error:", error);
+      }
+    }
+    
+    // Create basic reverb effect
+    function createBasicReverb() {
+      const sampleRate = audioCtx.sampleRate;
+      const length = sampleRate * 2; // 2 seconds
+      const impulse = audioCtx.createBuffer(2, length, sampleRate);
+      const left = impulse.getChannelData(0);
+      const right = impulse.getChannelData(1);
+      
+      for (let i = 0; i < length; i++) {
+        // Exponential decay
+        const n = 0.5 * Math.exp(-i / (sampleRate * 0.5));
+        left[i] = (Math.random() * 2 - 1) * n;
+        right[i] = (Math.random() * 2 - 1) * n;
+      }
+      
+      convolver.buffer = impulse;
+    }
+    
+    // Update reverb mix
+    function updateReverb() {
+      if (!wetGain || !dryGain) return;
+      
+      const mix = reverbSlider.value / 100;
+      dryGain.gain.value = 1 - mix;
+      wetGain.gain.value = mix;
+      
+      // Update UI
+      reverbVal.textContent = reverbSlider.value;
+    }
+    
+    // Update bass boost
+    function updateBass() {
+      if (!bassEQ) return;
+      
+      // Convert 0-100% to dB gain (+0dB to +24dB)
+      const boost = (bassSlider.value / 100) * 24;
+      bassEQ.gain.value = boost;
+      
+      // Update UI
+      bassVal.textContent = bassSlider.value;
+    }
+    
+    // Visualize audio
+    function visualize() {
+      if (!analyser) return;
+      
+      const width = visualizerCanvas.width;
+      const height = visualizerCanvas.height;
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      analyser.getByteFrequencyData(dataArray);
+      
+      visualizerCtx.clearRect(0, 0, width, height);
+      
+      // Draw gradient background
+      const gradient = visualizerCtx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, "#1a2a6c");
+      gradient.addColorStop(1, "#b21f1f");
+      visualizerCtx.fillStyle = gradient;
+      visualizerCtx.fillRect(0, 0, width, height);
+      
+      // Draw bars
+      const barWidth = (width / bufferLength) * 2.5;
+      let barHeight;
+      let x = 0;
+      
+      for (let i = 0; i < bufferLength; i++) {
+        barHeight = dataArray[i] / 2;
+        
+        // Create gradient for bars
+        const barGradient = visualizerCtx.createLinearGradient(0, height, 0, height - barHeight);
+        barGradient.addColorStop(0, "#ffcc00");
+        barGradient.addColorStop(1, "#ff9900");
+        visualizerCtx.fillStyle = barGradient;
+        
+        visualizerCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+        x += barWidth + 1;
+      }
+      
+      animationId = requestAnimationFrame(visualize);
+    }
+    
+    // Event handlers
+    fileInput.onchange = () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      
+      const fileURL = URL.createObjectURL(file);
+      audioElement.src = fileURL;
+      statusEl.textContent = `Loaded: ${file.name}`;
+      
+      // Initialize audio if not already done
+      initAudio();
+      
+      // Apply current settings
+      audioElement.playbackRate = parseFloat(speedSlider.value);
+      audioElement.preservesPitch = preservePitch.checked;
+
+      // Restart visualization if audio context exists
+      if (audioCtx) {
+        visualize();
+      }
+    };
+    
+    speedSlider.oninput = () => {
+      const speed = parseFloat(speedSlider.value);
+      speedVal.textContent = speed.toFixed(2);
+      audioElement.playbackRate = speed;
+      audioElement.preservesPitch = preservePitch.checked;
+    };
+    
+    reverbSlider.oninput = updateReverb;
+    bassSlider.oninput = updateBass;
+    
+    preservePitch.onchange = () => {
+      audioElement.preservesPitch = preservePitch.checked;
+    };
+    
+    // Handle audio context suspension (autoplay policy)
+    document.addEventListener('click', async () => {
+      if (audioCtx && audioCtx.state === 'suspended') {
+        try {
+          await audioCtx.resume();
+          statusEl.textContent = "Audio context resumed. Play your audio.";
+        } catch (error) {
+          statusEl.textContent = "Error resuming audio context.";
+        }
+      }
+    });
+    
+    // Clean up when audio ends
+    audioElement.onended = () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+        visualizerCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+      }
+    };
+    
+    // Initialize on load
+    window.onload = () => {
+      // Initialize canvas size
+      visualizerCanvas.width = visualizerCanvas.offsetWidth;
+      visualizerCanvas.height = visualizerCanvas.offsetHeight;
+    };
+  </script>
+</body>
+</html>
