@@ -4,3 +4,4 @@ TO DO:
 * Replace default html audio bar with custom
 * Maybe add more effects?
 * Download edited file
+* Make mobile compatible
