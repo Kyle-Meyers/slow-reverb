@@ -516,9 +516,7 @@
           sourceNode = audioCtx.createBufferSource();
           sourceNode.buffer = audioBuffer;
           sourceNode.playbackRate.value = currentSpeed;
-          
-          // Connect to pitch shifter
-          sourceNode.connect(phaseVocoderNode);
+          sourceNode.connect(bassEQ);
           
           // Start playing from current position
           startTime = audioCtx.currentTime;
