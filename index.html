@@ -464,20 +464,14 @@
       // Playback control functions
       function togglePlayback() {
           if (!audioBuffer) return;
-          
-          if (isPlaying) {
-              pausePlayback();
-          } else {
-              startPlayback();
-          }
+          isPlaying ? pausePlayback() : startPlayback();
       }
 
       function startPlayback() {
           if (!audioBuffer || !audioCtx) return;
 
-          const webAudioOutput = document.getElementById('audio');
-          if (webAudioOutput.paused) {
-              webAudioOutput.play().catch(err => {
+          if (audioElement.paused) {
+              audioElement.play().catch(err => {
                   console.warn("Failed to play webAudioOutput:", err);
               });
           }
@@ -485,24 +479,12 @@
           // Create new source node
           sourceNode = audioCtx.createBufferSource();
           sourceNode.buffer = audioBuffer;
-          
-          // Set playback rate (speed control)
           sourceNode.playbackRate.value = currentSpeed;
-          
-          // Connect to effect chain
           sourceNode.connect(bassEQ);
           
           // Start playing from current position
           startTime = audioCtx.currentTime;
           sourceNode.start(0, pauseTime);
-          
-          // Handle end of playback
-          sourceNode.onended = () => {
-              pauseTime = 0;
-              isPlaying = false;
-              updatePlayPauseIcon();
-              updateProgress();
-          };
           
           isPlaying = true;
           updatePlayPauseIcon();
@@ -581,8 +563,7 @@
               analyser.connect(destination);
 
               // wire that stream into a real <audio> element
-              const webAudioOutput = document.getElementById('audio');
-              webAudioOutput.srcObject = destination.stream;
+              audioElement.srcObject = destination.stream;
               
               // Start visualization
               visualize();
