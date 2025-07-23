@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Real-Time Audio Effects</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -163,8 +164,10 @@
       height: 30px;
       display: flex;
       align-items: center;
+      flex-direction: column;
     }
     .progress-bar {
+      width: 100%;
       height: 6px;
       background: #555;
       border-radius: 3px;
@@ -182,6 +185,13 @@
       background: #ffcc00;
       border-radius: 3px;
     }
+    .progress-time-container {
+      margin-top: 4px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #aaa;
+    }
     .progress-time {
       font-size: 12px;
       color: #aaa;
@@ -193,22 +203,6 @@
       color: #aaa;
       min-width: 10px;
       text-align: center;
-    }
-    .volume-slider {
-      width: 80px;
-      height: 6px;
-      background: #555;
-      border-radius: 3px;
-      -webkit-appearance: none;
-      appearance: none;
-    }
-    .volume-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
-      background: #ffcc00;
-      cursor: pointer;
     }
     .file-upload-container {
       margin-bottom: 20px;
@@ -250,6 +244,69 @@
     .file-upload-input {
       display: none;
     }
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+      }
+      .container {
+        padding: 1rem;
+      }
+      .audio-controls {
+        flex-direction: row;
+        align-items: flex-start;
+      }
+      .progress-container {
+        flex-direction: column;
+        align-items: stretch;
+        height: auto;
+        margin-top: 10px;
+      }
+      .progress-bar {
+        width: 100%;
+        margin-bottom: 5px;
+      }
+      .progress-time,
+      .progress-slash {
+        display: inline-block;
+        font-size: 14px;
+        margin: 0 2px;
+      }
+      .progress-time-container {
+        justify-content: center;
+        gap: 4px;
+      }
+      .slider-container label {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .file-upload-label {
+        flex-direction: column;
+        min-width: auto;
+        padding: 10px;
+        font-size: 14px;
+      }
+      .value-display {
+        width: auto;
+        margin-left: 10px;
+        font-size: 14px;
+      }
+      .slider {
+        height: 20px;
+      }
+      .control-btn {
+        font-size: 18px;
+        width: 36px;
+        height: 36px;
+      }
+      .volume-slider {
+        width: 100%;
+      }
+      .file-name {
+        display: block;
+        margin-top: 5px;
+        max-width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -262,7 +319,7 @@
         <span class="file-upload-text">Choose Audio File</span>
         <span id="fileName" class="file-name">No file selected</span>
       </label>
-      <input type="file" accept="audio/*" id="audioFile" class="file-upload-input">
+      <input type="file" accept="audio/mp3, audio/wav" id="audioFile" class="file-upload-input">
     </div>
     
     <div class="instructions">
@@ -280,9 +337,11 @@
         <button id="playPauseBtn" class="control-btn">▶</button>
         <div class="progress-container">
           <div class="progress-bar" id="progressBar"></div>
-          <div class="progress-time" id="currentTime">0:00</div>
-          <div class="progress-slash">/</div>
-          <div class="progress-time" id="duration">0:00</div>
+          <div class="progress-time-container">
+            <div class="progress-time" id="currentTime">0:00</div>
+            <div class="progress-slash">/</div>
+            <div class="progress-time" id="duration">0:00</div>
+          </div>
         </div>
       </div>
     </div>
@@ -323,281 +382,377 @@
     </div>
     
     <div class="status" id="status">Ready to load audio file...</div>
+
+    <audio id="silentLoop" src="/silence.mp3" loop muted playsinline style="display:none;"></audio>
   </div>
 
   <script>
-    // DOM elements
-    const fileInput = document.getElementById('audioFile');
-    const audioElement = document.getElementById('audio');
-    const speedSlider = document.getElementById('speed');
-    const reverbSlider = document.getElementById('reverb');
-    const bassSlider = document.getElementById('bass');
-    const preservePitch = document.getElementById('preservePitch');
-    const speedVal = document.getElementById('speedVal');
-    const reverbVal = document.getElementById('reverbVal');
-    const bassVal = document.getElementById('bassVal');
-    const statusEl = document.getElementById('status');
-    const visualizerCanvas = document.getElementById('visualizer');
-    const playPauseBtn = document.getElementById('playPauseBtn');
-    const progressBar = document.getElementById('progressBar');
-    const currentTimeEl = document.getElementById('currentTime');
-    const durationEl = document.getElementById('duration');
+      // DOM elements
+      const fileInput = document.getElementById('audioFile');
+      const audioElement = document.getElementById('audio');
+      const speedSlider = document.getElementById('speed');
+      const reverbSlider = document.getElementById('reverb');
+      const bassSlider = document.getElementById('bass');
+      const preservePitch = document.getElementById('preservePitch');
+      const speedVal = document.getElementById('speedVal');
+      const reverbVal = document.getElementById('reverbVal');
+      const bassVal = document.getElementById('bassVal');
+      const statusEl = document.getElementById('status');
+      const visualizerCanvas = document.getElementById('visualizer');
+      const playPauseBtn = document.getElementById('playPauseBtn');
+      const progressBar = document.getElementById('progressBar');
+      const currentTimeEl = document.getElementById('currentTime');
+      const durationEl = document.getElementById('duration');
 
-    // Update progress bar
-    function updateProgress() {
-      if (!audioElement.duration) return;
-      const progress = (audioElement.currentTime / audioElement.duration) * 100;
-      progressBar.style.setProperty('--progress', `${progress}%`);
-      currentTimeEl.textContent = formatTime(audioElement.currentTime);
-    }
-
-    // Format time (seconds to MM:SS)
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-    }
-
-    // Update play/pause button
-    function updatePlayPauseIcon() {
-      playPauseBtn.textContent = audioElement.paused ? '▶' : '❚❚';
-    }
-
-    // Event listeners
-    playPauseBtn.addEventListener('click', () => {
-      if (audioElement.paused) {
-        audioElement.play();
-      } else {
-        audioElement.pause();
+      // Audio variables
+      let audioCtx = null;
+      let audioBuffer = null;
+      let sourceNode = null;
+      let startTime = 0;
+      let pauseTime = 0;
+      let isPlaying = false;
+      let currentSpeed = 1.0;
+      let audioDuration = 0;
+      let animationId = null;
+      
+      // Audio nodes
+      let gainNode, convolver, bassEQ, dryGain, wetGain, analyser;
+      let visualizerCtx;
+      
+      // Update progress bar
+      function updateProgress() {
+          if (audioBuffer) {
+              let currentTime = pauseTime;
+              if (isPlaying) {
+                  currentTime = pauseTime + (audioCtx.currentTime - startTime) * currentSpeed;
+              }
+              const progress = (currentTime / audioDuration) * 100;
+              progressBar.style.setProperty('--progress', `${progress}%`);
+              currentTimeEl.textContent = formatTime(currentTime);
+          }
       }
-      updatePlayPauseIcon();
-    });
 
-    progressBar.addEventListener('click', (e) => {
-      const rect = progressBar.getBoundingClientRect();
-      const pos = (e.clientX - rect.left) / rect.width;
-      audioElement.currentTime = pos * audioElement.duration;
-    });
+      // Format time (seconds to MM:SS)
+      function formatTime(seconds) {
+          const mins = Math.floor(seconds / 60);
+          const secs = Math.floor(seconds % 60);
+          return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      }
 
-    // Audio element event listeners
-    audioElement.addEventListener('timeupdate', updateProgress);
-    audioElement.addEventListener('play', updatePlayPauseIcon);
-    audioElement.addEventListener('pause', updatePlayPauseIcon);
-    audioElement.addEventListener('durationchange', () => {
-      durationEl.textContent = formatTime(audioElement.duration);
-    });
-    
-    // Audio context and nodes
-    let audioCtx, source, gainNode, convolver, bassEQ, dryGain, wetGain;
-    let analyser, visualizerCtx, animationId;
-    
-    // Initialize audio context and graph
-    function initAudio() {
-      if (audioCtx) {
-        // If audio context exists but visualization isn't running, start it
-        if (!animationId) {
-          visualize();
-        }
-        return;
+      // Update play/pause button
+      function updatePlayPauseIcon() {
+          playPauseBtn.textContent = isPlaying ? '❚❚' : '▶';
       }
-      
-      try {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        statusEl.textContent = "Audio context created. Load an audio file to begin.";
-        
-        // Create effect nodes
-        gainNode = audioCtx.createGain();
-        bassEQ = audioCtx.createBiquadFilter();
-        bassEQ.type = 'lowshelf';
-        bassEQ.frequency.value = 150;
-        
-        convolver = audioCtx.createConvolver();
-        dryGain = audioCtx.createGain();
-        wetGain = audioCtx.createGain();
-        
-        // Create a simple impulse response
-        createBasicReverb();
-        
-        // Set initial values
-        updateReverb();
-        updateBass();
-        
-        // Setup visualizer
-        visualizerCtx = visualizerCanvas.getContext('2d');
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        
-        // Create the audio graph
-        source = audioCtx.createMediaElementSource(audioElement);
-        source.connect(bassEQ);
-        
-        // Split signal: dry and wet (reverb) paths
-        bassEQ.connect(dryGain);
-        bassEQ.connect(convolver);
-        convolver.connect(wetGain);
-        
-        // Merge paths
-        dryGain.connect(gainNode);
-        wetGain.connect(gainNode);
-        gainNode.connect(analyser);
-        analyser.connect(audioCtx.destination);
-        
-        // Start visualization
-        visualize();
-      } catch (error) {
-        statusEl.textContent = "Error initializing audio: " + error.message;
-        console.error("Audio initialization error:", error);
+
+      // Event listeners
+      playPauseBtn.addEventListener('click', togglePlayback);
+
+      progressBar.addEventListener('click', (e) => {
+          if (!audioBuffer) return;
+          
+          const rect = progressBar.getBoundingClientRect();
+          const pos = (e.clientX - rect.left) / rect.width;
+          const newTime = pos * audioDuration;
+          
+          pauseTime = newTime;
+          if (isPlaying) {
+              // Restart playback from new position
+              stopPlayback();
+              startPlayback();
+          }
+          updateProgress();
+      });
+
+      // Playback control functions
+      function togglePlayback() {
+          if (!audioBuffer) return;
+          
+          if (isPlaying) {
+              pausePlayback();
+          } else {
+              startPlayback();
+          }
       }
-    }
-    
-    // Create basic reverb effect
-    function createBasicReverb() {
-      const sampleRate = audioCtx.sampleRate;
-      const length = sampleRate * 2; // 2 seconds
-      const impulse = audioCtx.createBuffer(2, length, sampleRate);
-      const left = impulse.getChannelData(0);
-      const right = impulse.getChannelData(1);
-      
-      for (let i = 0; i < length; i++) {
-        // Exponential decay
-        const n = 0.5 * Math.exp(-i / (sampleRate * 0.5));
-        left[i] = (Math.random() * 2 - 1) * n;
-        right[i] = (Math.random() * 2 - 1) * n;
+
+      function startPlayback() {
+          if (!audioBuffer || !audioCtx) return;
+          
+          // Create new source node
+          sourceNode = audioCtx.createBufferSource();
+          sourceNode.buffer = audioBuffer;
+          
+          // Set playback rate (speed control)
+          sourceNode.playbackRate.value = currentSpeed;
+          
+          // Connect to effect chain
+          sourceNode.connect(bassEQ);
+          
+          // Start playing from current position
+          startTime = audioCtx.currentTime;
+          sourceNode.start(0, pauseTime);
+          
+          // Handle end of playback
+          sourceNode.onended = () => {
+              pauseTime = 0;
+              isPlaying = false;
+              updatePlayPauseIcon();
+              updateProgress();
+          };
+          
+          isPlaying = true;
+          updatePlayPauseIcon();
       }
-      
-      convolver.buffer = impulse;
-    }
-    
-    // Update reverb mix
-    function updateReverb() {
-      if (!wetGain || !dryGain) return;
-      
-      const mix = reverbSlider.value / 100;
-      dryGain.gain.value = 1 - mix;
-      wetGain.gain.value = mix;
-      
-      // Update UI
-      reverbVal.textContent = reverbSlider.value;
-    }
-    
-    // Update bass boost
-    function updateBass() {
-      if (!bassEQ) return;
-      
-      // Convert 0-100% to dB gain (+0dB to +24dB)
-      const boost = (bassSlider.value / 100) * 24;
-      bassEQ.gain.value = boost;
-      
-      // Update UI
-      bassVal.textContent = bassSlider.value;
-    }
-    
-    // Visualize audio
-    function visualize() {
-      if (!analyser) return;
-      
-      const width = visualizerCanvas.width;
-      const height = visualizerCanvas.height;
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      
-      analyser.getByteFrequencyData(dataArray);
-      
-      visualizerCtx.clearRect(0, 0, width, height);
-      
-      // Draw gradient background
-      const gradient = visualizerCtx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, "#1a2a6c");
-      gradient.addColorStop(1, "#b21f1f");
-      visualizerCtx.fillStyle = gradient;
-      visualizerCtx.fillRect(0, 0, width, height);
-      
-      // Draw bars
-      const barWidth = (width / bufferLength) * 2.5;
-      let barHeight;
-      let x = 0;
-      
-      for (let i = 0; i < bufferLength; i++) {
-        barHeight = dataArray[i] / 2;
-        
-        // Create gradient for bars
-        const barGradient = visualizerCtx.createLinearGradient(0, height, 0, height - barHeight);
-        barGradient.addColorStop(0, "#ffcc00");
-        barGradient.addColorStop(1, "#ff9900");
-        visualizerCtx.fillStyle = barGradient;
-        
-        visualizerCtx.fillRect(x, height - barHeight, barWidth, barHeight);
-        x += barWidth + 1;
+
+      function pausePlayback() {
+          if (!isPlaying || !sourceNode) return;
+          
+          // Calculate current playback position
+          pauseTime += (audioCtx.currentTime - startTime) * currentSpeed;
+          
+          // Stop playback
+          sourceNode.stop();
+          sourceNode = null;
+          
+          isPlaying = false;
+          updatePlayPauseIcon();
+      }
+
+      function stopPlayback() {
+          if (sourceNode) {
+              sourceNode.stop();
+              sourceNode = null;
+          }
+          isPlaying = false;
+          updatePlayPauseIcon();
+      }
+
+      // Initialize audio context and nodes
+      function initAudio() {
+          if (audioCtx) {
+              // If audio context exists but visualization isn't running, start it
+              if (!animationId) {
+                  visualize();
+              }
+              return;
+          }
+          
+          try {
+              audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+              statusEl.textContent = "Audio context created. Load an audio file to begin.";
+
+              // Start silent <audio> element to keep context alive
+              const silentAudio = document.getElementById('silentLoop');
+              silentAudio.play().catch(e => {
+                  console.warn("Silent audio playback failed:", e);
+              });
+              
+              // Create effect nodes
+              gainNode = audioCtx.createGain();
+              bassEQ = audioCtx.createBiquadFilter();
+              bassEQ.type = 'lowshelf';
+              bassEQ.frequency.value = 150;
+              
+              convolver = audioCtx.createConvolver();
+              dryGain = audioCtx.createGain();
+              wetGain = audioCtx.createGain();
+              
+              // Create a simple impulse response
+              createBasicReverb();
+              
+              // Set initial values
+              updateReverb();
+              updateBass();
+              
+              // Setup visualizer
+              visualizerCtx = visualizerCanvas.getContext('2d');
+              analyser = audioCtx.createAnalyser();
+              analyser.fftSize = 256;
+              
+              // Create the audio graph
+              bassEQ.connect(dryGain);
+              bassEQ.connect(convolver);
+              convolver.connect(wetGain);
+              
+              // Merge paths
+              dryGain.connect(gainNode);
+              wetGain.connect(gainNode);
+              gainNode.connect(analyser);
+              analyser.connect(audioCtx.destination);
+              
+              // Start visualization
+              visualize();
+          } catch (error) {
+              statusEl.textContent = "Error initializing audio: " + error.message;
+              console.error("Audio initialization error:", error);
+          }
       }
       
-      animationId = requestAnimationFrame(visualize);
-    }
-    
-    // Event handlers
-    fileInput.onchange = () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-
-      // Handle file change
-      document.getElementById('fileName').textContent = file.name;
-      const fileURL = URL.createObjectURL(file);
-      audioElement.src = fileURL;
-      statusEl.textContent = `Loaded: ${file.name}`;
-
-      // Initialize audio if not already done
-      initAudio();
-
-      // Apply current settings
-      audioElement.playbackRate = parseFloat(speedSlider.value);
-      audioElement.preservesPitch = preservePitch.checked;
-
-      // Restart visualization if audio context exists
-      if (audioCtx) {
-        visualize();
+      // Create basic reverb effect
+      function createBasicReverb() {
+          const sampleRate = audioCtx.sampleRate;
+          const length = sampleRate * 2; // 2 seconds
+          const impulse = audioCtx.createBuffer(2, length, sampleRate);
+          const left = impulse.getChannelData(0);
+          const right = impulse.getChannelData(1);
+          
+          for (let i = 0; i < length; i++) {
+              // Exponential decay
+              const n = 0.5 * Math.exp(-i / (sampleRate * 0.5));
+              left[i] = (Math.random() * 2 - 1) * n;
+              right[i] = (Math.random() * 2 - 1) * n;
+          }
+          
+          convolver.buffer = impulse;
       }
-    };
-    
-    speedSlider.oninput = () => {
-      const speed = parseFloat(speedSlider.value);
-      speedVal.textContent = speed.toFixed(2);
-      audioElement.playbackRate = speed;
-      audioElement.preservesPitch = preservePitch.checked;
-    };
-    
-    reverbSlider.oninput = updateReverb;
-    bassSlider.oninput = updateBass;
-    
-    preservePitch.onchange = () => {
-      audioElement.preservesPitch = preservePitch.checked;
-    };
-    
-    // Handle audio context suspension (autoplay policy)
-    document.addEventListener('click', async () => {
-      if (audioCtx && audioCtx.state === 'suspended') {
-        try {
-          await audioCtx.resume();
-          statusEl.textContent = "Audio context resumed. Play your audio.";
-        } catch (error) {
-          statusEl.textContent = "Error resuming audio context.";
-        }
+      
+      // Update reverb mix
+      function updateReverb() {
+          if (!wetGain || !dryGain) return;
+          
+          const mix = reverbSlider.value / 100;
+          dryGain.gain.value = 1 - mix;
+          wetGain.gain.value = mix;
+          
+          // Update UI
+          reverbVal.textContent = reverbSlider.value;
       }
-    });
-    
-    // Clean up when audio ends
-    audioElement.onended = () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-        visualizerCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+      
+      // Update bass boost
+      function updateBass() {
+          if (!bassEQ) return;
+          
+          // Convert 0-100% to dB gain (+0dB to +24dB)
+          const boost = (bassSlider.value / 100) * 24;
+          bassEQ.gain.value = boost;
+          
+          // Update UI
+          bassVal.textContent = bassSlider.value;
       }
-    };
-    
-    // Initialize on load
-    window.onload = () => {
-      // Initialize canvas size
-      visualizerCanvas.width = visualizerCanvas.offsetWidth;
-      visualizerCanvas.height = visualizerCanvas.offsetHeight;
-    };
+      
+      // Visualize audio
+      function visualize() {
+          if (!analyser) return;
+          
+          const width = visualizerCanvas.width;
+          const height = visualizerCanvas.height;
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          
+          analyser.getByteFrequencyData(dataArray);
+          
+          visualizerCtx.clearRect(0, 0, width, height);
+          
+          // Draw gradient background
+          const gradient = visualizerCtx.createLinearGradient(0, 0, 0, height);
+          gradient.addColorStop(0, "#1a2a6c");
+          gradient.addColorStop(1, "#b21f1f");
+          visualizerCtx.fillStyle = gradient;
+          visualizerCtx.fillRect(0, 0, width, height);
+          
+          // Draw bars
+          const barWidth = (width / bufferLength) * 2.5;
+          let barHeight;
+          let x = 0;
+          
+          for (let i = 0; i < bufferLength; i++) {
+              barHeight = dataArray[i] / 2;
+              
+              // Create gradient for bars
+              const barGradient = visualizerCtx.createLinearGradient(0, height, 0, height - barHeight);
+              barGradient.addColorStop(0, "#ffcc00");
+              barGradient.addColorStop(1, "#ff9900");
+              visualizerCtx.fillStyle = barGradient;
+              
+              visualizerCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+              x += barWidth + 1;
+          }
+          
+          animationId = requestAnimationFrame(visualize);
+      }
+      
+      // Event handlers
+      fileInput.onchange = async () => {
+          const file = fileInput.files[0];
+          if (!file) return;
+
+          // Handle file change
+          document.getElementById('fileName').textContent = file.name;
+          statusEl.textContent = `Loading: ${file.name}`;
+
+          // Initialize audio and reset progress bar
+          await initAudio();
+          progressBar.style.setProperty('--progress', '0%');
+          currentTimeEl.textContent = '0:00';
+          durationEl.textContent = '0:00';
+
+          try {
+              const arrayBuffer = await file.arrayBuffer();
+              audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+              audioDuration = audioBuffer.duration;
+              durationEl.textContent = formatTime(audioDuration);
+              pauseTime = 0;
+              isPlaying = false;
+              stopPlayback();
+              statusEl.textContent = `Loaded: ${file.name}`;
+              
+              // Disable preserve pitch for now
+              preservePitch.disabled = true;
+              preservePitch.parentElement.style.opacity = "0.5";
+          } catch (error) {
+              statusEl.textContent = "Error loading audio: " + error.message;
+              console.error("Audio loading error:", error);
+          }
+
+          // Update play/pause button
+          updatePlayPauseIcon();
+      };
+      
+      speedSlider.oninput = () => {
+          const speed = parseFloat(speedSlider.value);
+          speedVal.textContent = speed.toFixed(2);
+          currentSpeed = speed;
+          
+          // Update playback rate for buffer source
+          if (sourceNode) {
+              sourceNode.playbackRate.value = speed;
+          }
+          if (isPlaying) {
+              // Update current playback time calculation
+              pauseTime += (audioCtx.currentTime - startTime) * currentSpeed;
+              startTime = audioCtx.currentTime;
+              currentSpeed = speed;
+          }
+      };
+      
+      reverbSlider.oninput = updateReverb;
+      bassSlider.oninput = updateBass;
+      
+      // Handle audio context suspension (autoplay policy)
+      document.addEventListener('click', async () => {
+          if (audioCtx && audioCtx.state === 'suspended') {
+              try {
+                  await audioCtx.resume();
+                  statusEl.textContent = "Audio context resumed. Play your audio.";
+              } catch (error) {
+                  statusEl.textContent = "Error resuming audio context.";
+              }
+          }
+      });
+      
+      // Initialize on load
+      window.onload = () => {
+          // Initialize canvas size
+          visualizerCanvas.width = visualizerCanvas.offsetWidth;
+          visualizerCanvas.height = visualizerCanvas.offsetHeight;
+          
+          // Disable preserve pitch
+          preservePitch.disabled = true;
+          preservePitch.parentElement.style.opacity = "0.5";
+          preservePitch.parentElement.title = "Pitch preservation not currently available";
+          
+          // Start progress update loop
+          setInterval(updateProgress, 200);
+      };
   </script>
 </body>
 </html>
