@@ -423,6 +423,17 @@
               let currentTime = pauseTime;
               if (isPlaying) {
                   currentTime = pauseTime + (audioCtx.currentTime - startTime) * currentSpeed;
+
+                  // Check if song has ended
+                  if (currentTime >= audioDuration) {
+                      pauseTime = 0;
+                      isPlaying = false;
+                      updatePlayPauseIcon();
+                      progressBar.style.setProperty('--progress', '0%');
+                      currentTimeEl.textContent = '0:00';
+                      stopPlayback();
+                      return;
+                  }
               }
               const progress = (currentTime / audioDuration) * 100;
               progressBar.style.setProperty('--progress', `${progress}%`);
