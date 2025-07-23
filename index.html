@@ -474,6 +474,13 @@
 
       function startPlayback() {
           if (!audioBuffer || !audioCtx) return;
+
+          const webAudioOutput = document.getElementById('audio');
+          if (webAudioOutput.paused) {
+              webAudioOutput.play().catch(err => {
+                  console.warn("Failed to play webAudioOutput:", err);
+              });
+          }
           
           // Create new source node
           sourceNode = audioCtx.createBufferSource();
@@ -538,12 +545,6 @@
               audioCtx = new (window.AudioContext || window.webkitAudioContext)();
               statusEl.textContent = "Audio context created. Load an audio file to begin.";
 
-              // Start silent <audio> element to keep context alive
-              const silentAudio = document.getElementById('silentLoop');
-              silentAudio.play().catch(e => {
-                  console.warn("Silent audio playback failed:", e);
-              });
-              
               // Create effect nodes
               gainNode = audioCtx.createGain();
               bassEQ = audioCtx.createBiquadFilter();
@@ -575,7 +576,13 @@
               dryGain.connect(gainNode);
               wetGain.connect(gainNode);
               gainNode.connect(analyser);
-              analyser.connect(audioCtx.destination);
+
+              const destination = audioCtx.createMediaStreamDestination();
+              analyser.connect(destination);
+
+              // wire that stream into a real <audio> element
+              const webAudioOutput = document.getElementById('audio');
+              webAudioOutput.srcObject = destination.stream;
               
               // Start visualization
               visualize();
